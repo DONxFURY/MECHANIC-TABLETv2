@@ -807,8 +807,11 @@ const notification = document.getElementById('notification');
 const notifTitle = document.getElementById('notifTitle');
 const notifMessage = document.getElementById('notifMessage');
 
-// Webhook URL (Replace with your actual Discord webhook URL)
-const WEBHOOK_URL = "https://discordapp.com/api/webhooks/1455112911344242892/6zqyWbxA7bEiPKQrjBGy_0KehCJiLYK5dIWR6-_Gs9p0cIh2qccITS1aThACv5TYx22K";
+// Separate Webhook URLs for REQUEST and SELL
+const WEBHOOK_URLS = {
+  REQUEST: "https://discordapp.com/api/webhooks/1455112911344242892/6zqyWbxA7bEiPKQrjBGy_0KehCJiLYK5dIWR6-_Gs9p0cIh2qccITS1aThACv5TYx22K", // Replace with your REQUEST webhook
+  SELL: "https://discordapp.com/api/webhooks/1455115502241452076/5k0ip4acvFsrikmeQAA04hlprtuXvNygRnyVfcr1FWY8Za8zS5TfxnglESSN98-hnFuA"    // Replace with your SELL webhook
+};
 
 // Global variables
 let orderType = "REQUEST";
@@ -943,7 +946,7 @@ function showNotification(title, message) {
   }, 3000);
 }
 
-// Send order to Discord webhook
+// Send order to Discord webhook based on orderType
 function sendOrder() {
   // Validate inputs
   if (!playerInput.value.trim()) {
@@ -972,76 +975,74 @@ function sendOrder() {
     timestamp: new Date().toISOString()
   };
   
+  // Get the correct webhook URL based on order type
+  const webhookUrl = WEBHOOK_URLS[orderType];
+  
+  // Check if webhook URL is configured
+  if (!webhookUrl || webhookUrl.includes("PUT_YOUR_DISCORD_WEBHOOK_HERE")) {
+    statusText.textContent = "ERROR: WEBHOOK NOT CONFIGURED";
+    showNotification("Configuration Error", `Please configure ${orderType} webhook URL`);
+    return;
+  }
+  
   // Update UI to show sending
-  statusText.textContent = "TRANSMITTING DATA...";
+  statusText.textContent = `TRANSMITTING ${orderType}...`;
   statusDisplay.style.color = "var(--hud-primary)";
+  
+  // Determine embed color based on order type
+  const embedColor = orderType === "REQUEST" ? 0x00FFEA : 0xFF3E7C;
   
   // Simulate transmission delay
   setTimeout(() => {
-    // In a real scenario, you would send to the webhook here
-    if (WEBHOOK_URL && WEBHOOK_URL !== "PUT_YOUR_DISCORD_WEBHOOK_HERE") {
-      // Actual fetch to Discord webhook
-      fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          embeds: [{
-            title: `🚗 VEHICLE ${orderType}`,
-            color: orderType === "REQUEST" ? 0x00FFEA : 0xFF3E7C,
-            fields: [
-              {name: "Player", value: orderData.player, inline: true},
-              {name: "Discord", value: orderData.discord, inline: true},
-              {name: "Vehicle", value: orderData.vehicle, inline: true},
-              {name: "Color", value: orderData.color, inline: true},
-              {name: "Quantity", value: orderData.quantity.toString(), inline: true},
-              {name: "Notes", value: orderData.notes}
-            ],
-            footer: {text: "Fanzville DayZ Vehicle Terminal"},
-            timestamp: orderData.timestamp
-          }]
-        })
+    // Send to Discord webhook
+    fetch(webhookUrl, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        embeds: [{
+          title: `🚗 VEHICLE ${orderType}`,
+          color: embedColor,
+          fields: [
+            {name: "Player", value: orderData.player, inline: true},
+            {name: "Discord", value: orderData.discord, inline: true},
+            {name: "Vehicle", value: orderData.vehicle, inline: true},
+            {name: "Color", value: orderData.color, inline: true},
+            {name: "Quantity", value: orderData.quantity.toString(), inline: true},
+            {name: "Notes", value: orderData.notes}
+          ],
+          footer: {text: "Fanzville DayZ Vehicle Terminal"},
+          timestamp: orderData.timestamp
+        }]
       })
-      .then(response => {
-        if (response.ok) {
-          statusText.textContent = "TRANSMISSION SUCCESSFUL";
-          showNotification("Success", "Order transmitted to Fanzville network");
-          
-          // Reset form after successful transmission
-          setTimeout(() => {
-            playerInput.value = "";
-            discordInput.value = "";
-            vehicleSelect.value = "";
-            colorSelect.innerHTML = '<option value="">SELECT COLOR</option>';
-            qtyInput.value = 1;
-            notesInput.value = "";
-            statusText.textContent = "READY FOR INPUT";
-          }, 2000);
-        } else {
-          statusText.textContent = "TRANSMISSION FAILED";
-          showNotification("Error", "Failed to send order. Check webhook URL.");
-        }
-      })
-      .catch(error => {
-        console.error("Error:", error);
-        statusText.textContent = "NETWORK ERROR";
-        showNotification("Error", "Network connection failed");
-      });
-    } else {
-      // Demo mode (no webhook configured)
-      statusText.textContent = "DEMO MODE: ORDER SIMULATED";
-      showNotification("Demo Mode", "Order simulated (configure webhook for real use)");
-      
-      // Reset form in demo mode
-      setTimeout(() => {
-        playerInput.value = "";
-        discordInput.value = "";
-        vehicleSelect.value = "";
-        colorSelect.innerHTML = '<option value="">SELECT COLOR</option>';
-        qtyInput.value = 1;
-        notesInput.value = "";
-        statusText.textContent = "READY FOR INPUT";
-      }, 2000);
-    }
+    })
+    .then(response => {
+      if (response.ok) {
+        statusText.textContent = `${orderType} TRANSMITTED SUCCESSFULLY`;
+        showNotification("Success", `${orderType} sent to ${orderType} channel`);
+        
+        // Reset form after successful transmission
+        setTimeout(() => {
+          playerInput.value = "";
+          discordInput.value = "";
+          vehicleSelect.value = "";
+          colorSelect.innerHTML = '<option value="">SELECT COLOR</option>';
+          qtyInput.value = 1;
+          notesInput.value = "";
+          statusText.textContent = "READY FOR INPUT";
+          statusDisplay.style.color = "";
+        }, 2000);
+      } else {
+        statusText.textContent = `${orderType} TRANSMISSION FAILED`;
+        showNotification("Error", `Failed to send ${orderType}. Check webhook URL.`);
+        statusDisplay.style.color = "var(--hud-secondary)";
+      }
+    })
+    .catch(error => {
+      console.error("Error:", error);
+      statusText.textContent = "NETWORK ERROR";
+      showNotification("Error", "Network connection failed");
+      statusDisplay.style.color = "var(--hud-secondary)";
+    });
   }, 1500);
 }
 
